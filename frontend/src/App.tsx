@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-// URL dynamique (Render en production, localhost en développement)
+// URL dynamique de l'API (Render en production, local en dev)
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 interface Lecon {
@@ -23,16 +23,27 @@ export default function App() {
   });
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Fonction utilitaire pour éviter le plantage React #31 si une donnée est un objet
+  const renderTexte = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+
   // Charger les leçons depuis l'API
   const chargerLecons = async () => {
     try {
       const res = await fetch(`${API_URL}/api/lecons`);
       if (res.ok) {
         const data = await res.json();
-        setLecons(data);
+        if (Array.isArray(data)) {
+          setLecons(data);
+        } else {
+          setLecons([]);
+        }
       }
     } catch (err) {
-      console.error('Erreur de chargement des leçons :', err);
+      console.error('Erreur lors du chargement des leçons :', err);
     }
   };
 
@@ -189,21 +200,21 @@ export default function App() {
               </div>
             ) : (
               <div className="space-y-4">
-                {lecons.map((l) => (
-                  <div key={l.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-200 transition-all">
+                {lecons.map((l, index) => (
+                  <div key={l.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-200 transition-all">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                      <h3 className="font-bold text-slate-900 text-base">{l.titre}</h3>
+                      <h3 className="font-bold text-slate-900 text-base">{renderTexte(l.titre)}</h3>
                       <div className="flex gap-2">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">{l.discipline}</span>
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold">{l.niveau}</span>
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">{renderTexte(l.discipline)}</span>
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold">{renderTexte(l.niveau)}</span>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mb-2">
-                      <strong className="text-slate-700">Compétence :</strong> {l.competence}
+                      <strong className="text-slate-700">Compétence :</strong> {renderTexte(l.competence)}
                     </p>
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-600">
                       <strong className="text-slate-700 block mb-1">Situation Problème :</strong>
-                      {l.situation_probleme}
+                      {renderTexte(l.situation_probleme)}
                     </div>
                   </div>
                 ))}
@@ -213,7 +224,7 @@ export default function App() {
 
         </div>
 
-        {/* COLONNE DROITE : PANNEAU DE CONTRÔLE AMÉLIORÉ (1/3) */}
+        {/* COLONNE DROITE : PANNEAU DE CONTRÔLE ET STATISTIQUES (1/3) */}
         <div className="space-y-6">
           
           {/* Carte 1 : Métriques */}
