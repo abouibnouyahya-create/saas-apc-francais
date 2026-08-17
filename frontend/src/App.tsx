@@ -1,466 +1,283 @@
 import React, { useEffect, useState } from 'react';
 
-interface EnteteAdministratif {
-  academie: string;
-  cap: string;
-  etablissement: string;
-  enseignant: string;
-  anneeScolaire: string;
-  effectif: string;
-}
+// URL dynamique (Render en production, localhost en développement)
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-interface ActiviteAPC {
+interface Lecon {
+  id?: number;
   titre: string;
-  consignes: string[];
-  synthese_partielle: string;
-}
-
-interface SectionEval {
-  consigne: string;
-  questions: string[];
-}
-
-interface FicheLeconAPC {
-  id: string;
   discipline: string;
   niveau: string;
-  titre: string;
-  pre_evaluation: string[];
-  situation_probleme: { texte: string; consigne: string };
-  activites: ActiviteAPC[];
-  synthese_generale: string[];
-  evaluation: SectionEval;
-  remediation: SectionEval;
-  enrichissement: SectionEval;
+  competence: string;
+  situation_probleme: string;
 }
 
-const DISCIPLINES = ['Toutes', 'Grammaire', 'Orthographe', 'Expression Écrite', 'Lexique', 'Lecture Méthodique'];
-
 export default function App() {
-  const [lecons, setLecons] = useState<FicheLeconAPC[]>([]);
-  const [disciplineFiltre, setDisciplineFiltre] = useState<string>('Toutes');
-  const [leconSelectionnee, setLeconSelectionnee] = useState<FicheLeconAPC | null>(null);
-  const [afficherConfigEntete, setAfficherConfigEntete] = useState(false);
-  const [afficherFormulaireAjout, setAfficherFormulaireAjout] = useState(false);
-
-  // Formulaire de création de fiche
-  const [nouvelleLecon, setNouvelleLecon] = useState({
-    discipline: 'Grammaire',
-    niveau: '10e Année',
+  const [lecons, setLecons] = useState<Lecon[]>([]);
+  const [form, setForm] = useState<Lecon>({
     titre: '',
-    texteSituation: '',
-    consigneSituation: '',
-    syntheseGenerale: ''
+    discipline: 'Français',
+    niveau: '7ème Année',
+    competence: '',
+    situation_probleme: '',
   });
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // En-tête administratif
-  const [entete, setEntete] = useState<EnteteAdministratif>(() => {
-    const localData = localStorage.getItem('apc_entete_enseignant');
-    if (localData) {
-      try { return JSON.parse(localData); } catch (e) {}
-    }
-    return {
-      academie: "Rive Gauche - Bamako",
-      cap: "Bamako Coura",
-      etablissement: "Lycée Progrès",
-      enseignant: "M. Traoré",
-      anneeScolaire: "2025-2026",
-      effectif: "45 élèves"
-    };
-  });
-
-  const handleEnteteChange = (champ: keyof EnteteAdministratif, valeur: string) => {
-    const nouvelEntete = { ...entete, [champ]: valeur };
-    setEntete(nouvelEntete);
-    localStorage.setItem('apc_entete_enseignant', JSON.stringify(nouvelEntete));
-  };
-
-  const chargerLecons = () => {
-    fetch('http://127.0.0.1:8000/api/lecons')
-      .then((res) => res.json())
-      .then((data: FicheLeconAPC[]) => {
+  // Charger les leçons depuis l'API
+  const chargerLecons = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/lecons`);
+      if (res.ok) {
+        const data = await res.json();
         setLecons(data);
-        if (data.length > 0 && !leconSelectionnee) {
-          setLeconSelectionnee(data[0]);
-        }
-      })
-      .catch((err) => console.error("Erreur Backend :", err));
+      }
+    } catch (err) {
+      console.error('Erreur de chargement des leçons :', err);
+    }
   };
 
   useEffect(() => {
     chargerLecons();
   }, []);
 
+  // Soumettre une nouvelle leçon
   const handleCreerLecon = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: FicheLeconAPC = {
-      id: `fiche-${Date.now()}`,
-      discipline: nouvelleLecon.discipline,
-      niveau: nouvelleLecon.niveau,
-      titre: nouvelleLecon.titre,
-      pre_evaluation: ["Rappel de la leçon précédente."],
-      situation_probleme: {
-        texte: nouvelleLecon.texteSituation,
-        consigne: nouvelleLecon.consigneSituation
-      },
-      activites: [
-        {
-          titre: "Activité 1 : Observation et découverte",
-          consignes: ["Lisez attentivement le texte.", "Identifiez les notions clés."],
-          synthese_partielle: "Analyse initiale du concept."
-        }
-      ],
-      synthese_generale: nouvelleLecon.syntheseGenerale.split('\n').filter(l => l.trim() !== ''),
-      evaluation: {
-        consigne: "Évaluation des acquis :",
-        questions: ["Exercice d'application globale."]
-      },
-      remediation: {
-        consigne: "Exercice de soutien :",
-        questions: ["Exercice simplifié pour consolider les bases."]
-      },
-      enrichissement: {
-        consigne: "Exercice d'approfondissement :",
-        questions: ["Production personnelle complexe."]
-      }
-    };
-
+    setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/lecons', {
+      const res = await fetch(`${API_URL}/api/lecons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(form),
       });
       if (res.ok) {
-        setAfficherFormulaireAjout(false);
-        setNouvelleLecon({
-          discipline: 'Grammaire', niveau: '10e Année', titre: '',
-          texteSituation: '', consigneSituation: '', syntheseGenerale: ''
+        setForm({
+          titre: '',
+          discipline: 'Français',
+          niveau: '7ème Année',
+          competence: '',
+          situation_probleme: '',
         });
-        chargerLecons();
+        await chargerLecons();
       }
     } catch (err) {
-      console.error("Erreur de création :", err);
+      console.error('Erreur lors de la création :', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const leconsFiltrees = lecons.filter(
-    (l) => disciplineFiltre === 'Toutes' || l.discipline === disciplineFiltre
-  );
-
   return (
-    <div className="min-h-screen bg-slate-100 flex">
-      {/* BARRE LATÉRALE */}
-      <aside className="w-80 bg-white border-r border-slate-200 p-6 flex flex-col shrink-0 min-h-screen">
-        <div className="mb-6 cursor-pointer" onClick={() => setLeconSelectionnee(null)}>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            SaaS ÉdTech APC
-          </span>
-          <h1 className="text-xl font-black text-slate-800 mt-2">Français 10e Année</h1>
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans p-4 md:p-8">
+      {/* HEADER */}
+      <header className="max-w-7xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Plateforme Pédagogique <span className="text-indigo-600">APC Mali</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Gestion et préparation des fiches de cours selon l'Approche Par Compétences.
+          </p>
         </div>
-
-        {/* FILTRE DISCIPLINE */}
-        <div className="mb-4">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-            Discipline
-          </label>
-          <select
-            value={disciplineFiltre}
-            onChange={(e) => setDisciplineFiltre(e.target.value)}
-            className="w-full text-xs font-semibold p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            {DISCIPLINES.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+        <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-xs font-semibold text-indigo-900">Serveur Actif</span>
         </div>
-
-        {/* LISTE DES LEÇONS */}
-        <nav className="space-y-1 overflow-y-auto mb-4 flex-1">
-          {leconsFiltrees.map((item) => {
-            const isSelected = leconSelectionnee?.id === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setLeconSelectionnee(item)}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isSelected
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'
-                }`}
-              >
-                <div className="text-[10px] opacity-75 font-normal">{item.discipline}</div>
-                <div>{item.titre}</div>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* BOUTONS ACTIONS */}
-        <div className="pt-4 border-t border-slate-200 mt-auto space-y-2">
-          <button
-            onClick={() => setAfficherFormulaireAjout(true)}
-            className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-sm"
-          >
-            <span>➕ Créer une Fiche</span>
-          </button>
-
-          <button
-            onClick={() => setAfficherConfigEntete(!afficherConfigEntete)}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all"
-          >
-            <span>⚙️ Configurer En-tête</span>
-          </button>
-        </div>
-      </aside>
+      </header>
 
       {/* CONTENU PRINCIPAL */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* COLONNE GAUCHE & CENTRE : FORMULAIRE ET LISTE (2/3) */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Formulaire de création */}
+          <section className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/80">
+            <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">✍️</span>
+              Créer une Fiche de Leçon
+            </h2>
 
-        {/* MODAL / FORMULAIRE DE CRÉATION DE FICHE */}
-        {afficherFormulaireAjout && (
-          <div className="mb-6 bg-white p-6 rounded-2xl border border-emerald-300 shadow-md max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-slate-800">➕ Créer une Nouvelle Fiche de Leçon APC</h3>
-              <button onClick={() => setAfficherFormulaireAjout(false)} className="text-xs text-slate-400 font-bold">✕ Fermer</button>
-            </div>
-            <form onSubmit={handleCreerLecon} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Discipline</label>
-                  <select
-                    value={nouvelleLecon.discipline}
-                    onChange={(e) => setNouvelleLecon({ ...nouvelleLecon, discipline: e.target.value })}
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1"
-                  >
-                    {DISCIPLINES.filter(d => d !== 'Toutes').map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Titre de la leçon</label>
-                  <input
-                    type="text"
-                    required
-                    value={nouvelleLecon.titre}
-                    onChange={(e) => setNouvelleLecon({ ...nouvelleLecon, titre: e.target.value })}
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1"
-                  />
-                </div>
-              </div>
+            <form onSubmit={handleCreerLecon} className="space-y-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Texte de la Situation-Problème</label>
-                <textarea
-                  required
-                  rows={2}
-                  value={nouvelleLecon.texteSituation}
-                  onChange={(e) => setNouvelleLecon({ ...nouvelleLecon, texteSituation: e.target.value })}
-                  className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Consigne de la Situation-Problème</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Titre de la leçon</label>
                 <input
                   type="text"
                   required
-                  value={nouvelleLecon.consigneSituation}
-                  onChange={(e) => setNouvelleLecon({ ...nouvelleLecon, consigneSituation: e.target.value })}
-                  className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1"
+                  placeholder="Ex: La subordination avec 'parce que'"
+                  value={form.titre}
+                  onChange={(e) => setForm({ ...form, titre: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Discipline</label>
+                  <select
+                    value={form.discipline}
+                    onChange={(e) => setForm({ ...form, discipline: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
+                  >
+                    <option value="Français">Français</option>
+                    <option value="Grammaire">Grammaire</option>
+                    <option value="Vocabulaire">Vocabulaire</option>
+                    <option value="Conjugaison">Conjugaison</option>
+                    <option value="Orthographe">Orthographe</option>
+                    <option value="Lecture / Expression">Lecture / Expression</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau</label>
+                  <select
+                    value={form.niveau}
+                    onChange={(e) => setForm({ ...form, niveau: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
+                  >
+                    <option value="7ème Année">7ème Année</option>
+                    <option value="8ème Année">8ème Année</option>
+                    <option value="9ème Année">9ème Année</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Synthèse Générale (une règle par ligne)</label>
-                <textarea
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Compétence visée</label>
+                <input
+                  type="text"
                   required
-                  rows={3}
-                  value={nouvelleLecon.syntheseGenerale}
-                  onChange={(e) => setNouvelleLecon({ ...nouvelleLecon, syntheseGenerale: e.target.value })}
-                  className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1"
+                  placeholder="Ex: Utiliser correctement les expressions de cause"
+                  value={form.competence}
+                  onChange={(e) => setForm({ ...form, competence: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
                 />
               </div>
-              <button type="submit" className="w-full py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700">
-                Enregistrer la fiche dans la BDD
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Situation Problème</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Décrivez le contexte de départ et le problème concret à résoudre par l'élève..."
+                  value={form.situation_probleme}
+                  onChange={(e) => setForm({ ...form, situation_probleme: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {loading ? 'Enregistrement...' : 'Enregistrer la Leçon'}
               </button>
             </form>
-          </div>
-        )}
+          </section>
 
-        {/* AFFICHAGE CONFIGURATION EN-TÊTE */}
-        {afficherConfigEntete && (
-          <div className="mb-6 bg-white p-6 rounded-2xl border border-emerald-300 shadow-md max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-slate-800">✏️ Personnaliser mes Informations Administratives</h3>
-              <button onClick={() => setAfficherConfigEntete(false)} className="text-xs text-slate-400 font-bold">✕ Fermer</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Académie d'Enseignement</label>
-                <input type="text" value={entete.academie} onChange={(e) => handleEnteteChange('academie', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">CAP</label>
-                <input type="text" value={entete.cap} onChange={(e) => handleEnteteChange('cap', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Établissement</label>
-                <input type="text" value={entete.etablissement} onChange={(e) => handleEnteteChange('etablissement', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Nom de l'Enseignant</label>
-                <input type="text" value={entete.enseignant} onChange={(e) => handleEnteteChange('enseignant', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Année Scolaire</label>
-                <input type="text" value={entete.anneeScolaire} onChange={(e) => handleEnteteChange('anneeScolaire', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Effectif / Classe</label>
-                <input type="text" value={entete.effectif} onChange={(e) => handleEnteteChange('effectif', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-slate-200 mt-1" />
-              </div>
-            </div>
-          </div>
-        )}
+          {/* Liste des leçons */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
+              Leçons Enregistrées ({lecons.length})
+            </h2>
 
-        {/* AFFICHAGE DE LA LEÇON SÉLECTIONNÉE */}
-        {leconSelectionnee ? (
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* EN-TÊTE ADMINISTRATIF */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-xs space-y-3">
-              <div className="flex justify-between items-start border-b border-slate-200 pb-3">
-                <div>
-                  <p className="font-extrabold text-slate-800 uppercase">République du Mali</p>
-                  <p className="text-[10px] text-slate-500 italic">Un Peuple - Un But - Une Foi</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-emerald-800">AE : {entete.academie}</p>
-                  <p className="text-slate-600">CAP : {entete.cap}</p>
-                </div>
+            {lecons.length === 0 ? (
+              <div className="bg-white p-8 rounded-2xl border border-slate-200/80 text-center text-slate-400">
+                Aucune leçon enregistrée pour le moment.
               </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1 text-slate-700">
-                <div><span className="font-bold">Établissement :</span> {entete.etablissement}</div>
-                <div><span className="font-bold">Professeur :</span> {entete.enseignant}</div>
-                <div><span className="font-bold">Année :</span> {entete.anneeScolaire}</div>
-                <div><span className="font-bold">Effectif :</span> {entete.effectif}</div>
-              </div>
-            </div>
-
-            {/* CONTENU DE LA FICHE PÉDAGOGIQUE APC */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-              <div>
-                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-                  {leconSelectionnee.discipline}
-                </span>
-                <h1 className="text-2xl font-black text-slate-800 mt-1">
-                  Fiche de Leçon : {leconSelectionnee.titre}
-                </h1>
-              </div>
-
-              {/* I. Pré-évaluation */}
-              {leconSelectionnee.pre_evaluation && leconSelectionnee.pre_evaluation.length > 0 && (
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <h3 className="font-bold text-slate-800 text-xs mb-2 uppercase">I. Pré-évaluation / Rappels</h3>
-                  <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
-                    {leconSelectionnee.pre_evaluation.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* II. Situation-Problème */}
-              {leconSelectionnee.situation_probleme && (
-                <div className="bg-amber-50/70 p-4 rounded-lg border border-amber-200">
-                  <h3 className="font-bold text-amber-900 text-xs mb-2 uppercase">II. Situation-Problème</h3>
-                  <p className="text-xs italic text-amber-950 mb-2">
-                    "{leconSelectionnee.situation_probleme.texte}"
-                  </p>
-                  <p className="text-xs font-semibold text-amber-900">
-                    Consigne : {leconSelectionnee.situation_probleme.consigne}
-                  </p>
-                </div>
-              )}
-
-              {/* III. Déroulement des Activités */}
-              {leconSelectionnee.activites && leconSelectionnee.activites.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-800 text-xs uppercase">III. Déroulement des Activités</h3>
-                  {leconSelectionnee.activites.map((act, idx) => (
-                    <div key={idx} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50 space-y-2">
-                      <h4 className="font-semibold text-emerald-700 text-xs">{act.titre}</h4>
-                      <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
-                        {act.consignes.map((c, cIdx) => (
-                          <li key={cIdx}>{c}</li>
-                        ))}
-                      </ul>
-                      <div className="bg-emerald-50 p-2 rounded text-[11px] text-emerald-800 border border-emerald-100">
-                        <strong>Synthèse partielle :</strong> {act.synthese_partielle}
+            ) : (
+              <div className="space-y-4">
+                {lecons.map((l) => (
+                  <div key={l.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-200 transition-all">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <h3 className="font-bold text-slate-900 text-base">{l.titre}</h3>
+                      <div className="flex gap-2">
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">{l.discipline}</span>
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold">{l.niveau}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* IV. Synthèse générale */}
-              {leconSelectionnee.synthese_generale && leconSelectionnee.synthese_generale.length > 0 && (
-                <div className="bg-emerald-50/40 p-4 rounded-lg border border-emerald-200">
-                  <h3 className="font-bold text-emerald-900 text-xs mb-2 uppercase">IV. Synthèse Générale</h3>
-                  <ul className="list-disc list-inside text-xs text-emerald-950 space-y-1">
-                    {leconSelectionnee.synthese_generale.map((s, idx) => (
-                      <li key={idx}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* V. Évaluation */}
-              {leconSelectionnee.evaluation && (
-                <div className="border border-blue-200 bg-blue-50/30 p-4 rounded-lg">
-                  <h3 className="font-bold text-blue-900 text-xs mb-2 uppercase">V. Évaluation</h3>
-                  <p className="text-xs text-blue-950 font-medium mb-2">{leconSelectionnee.evaluation.consigne}</p>
-                  <ul className="list-disc list-inside text-xs text-blue-900 space-y-1">
-                    {leconSelectionnee.evaluation.questions.map((q, idx) => (
-                      <li key={idx}>{q}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* VI & VII. Remédiation & Enrichissement */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {leconSelectionnee.remediation && (
-                  <div className="border border-orange-200 bg-orange-50/30 p-4 rounded-lg">
-                    <h3 className="font-bold text-orange-900 text-xs mb-1 uppercase">VI. Remédiation</h3>
-                    <p className="text-[11px] text-orange-950 font-medium mb-2">{leconSelectionnee.remediation.consigne}</p>
-                    <ul className="list-disc list-inside text-[11px] text-orange-900 space-y-1">
-                      {leconSelectionnee.remediation.questions.map((q, idx) => (
-                        <li key={idx}>{q}</li>
-                      ))}
-                    </ul>
+                    <p className="text-xs text-slate-500 mb-2">
+                      <strong className="text-slate-700">Compétence :</strong> {l.competence}
+                    </p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-600">
+                      <strong className="text-slate-700 block mb-1">Situation Problème :</strong>
+                      {l.situation_probleme}
+                    </div>
                   </div>
-                )}
+                ))}
+              </div>
+            )}
+          </section>
 
-                {leconSelectionnee.enrichissement && (
-                  <div className="border border-purple-200 bg-purple-50/30 p-4 rounded-lg">
-                    <h3 className="font-bold text-purple-900 text-xs mb-1 uppercase">VII. Enrichissement</h3>
-                    <p className="text-[11px] text-purple-950 font-medium mb-2">{leconSelectionnee.enrichissement.consigne}</p>
-                    <ul className="list-disc list-inside text-[11px] text-purple-900 space-y-1">
-                      {leconSelectionnee.enrichissement.questions.map((q, idx) => (
-                        <li key={idx}>{q}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+        </div>
+
+        {/* COLONNE DROITE : PANNEAU DE CONTRÔLE AMÉLIORÉ (1/3) */}
+        <div className="space-y-6">
+          
+          {/* Carte 1 : Métriques */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs">📊</span>
+              Aperçu Global
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Leçons</p>
+                <p className="text-2xl font-black text-indigo-600 mt-1">{lecons.length}</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Connexion API</p>
+                <span className="inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  OK
+                </span>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="max-w-4xl mx-auto py-12 text-center text-slate-500">
-            <h2 className="text-2xl font-black text-slate-800 mb-2">Bienvenue sur votre Espace APC</h2>
-            <p className="text-xs">Sélectionnez une leçon dans le menu de gauche ou créez-en une nouvelle avec le bouton ➕.</p>
+
+          {/* Carte 2 : Guide APC Mali */}
+          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="px-2 py-0.5 text-[10px] font-extrabold bg-indigo-500/30 text-indigo-300 rounded border border-indigo-400/20 uppercase tracking-wider">
+                Rappel APC Mali
+              </span>
+            </div>
+            <h4 className="font-bold text-white text-sm mb-2">Approche Par Compétences</h4>
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Chaque fiche pédagogique doit obligatoirement partir d'une <strong>Situation Problème</strong> concrète, ancrée dans le quotidien des élèves.
+            </p>
+            <div className="text-[11px] text-indigo-200 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+              💡 <em>Assurez-vous que l'évaluation finale vérifie bien la compétence visée.</em>
+            </div>
           </div>
-        )}
+
+          {/* Carte 3 : Actions Rapides */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+              Actions Rapides
+            </h3>
+            <div className="space-y-2">
+              <button 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+                className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-between border border-transparent hover:border-slate-200"
+              >
+                <span>➕ Haut de page (Formulaire)</span>
+                <span className="text-slate-400">↑</span>
+              </button>
+              <button 
+                onClick={chargerLecons} 
+                className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-between border border-transparent hover:border-slate-200"
+              >
+                <span>🔄 Actualiser les leçons</span>
+                <span className="text-slate-400">↻</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
       </main>
     </div>
   );
