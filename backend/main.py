@@ -445,3 +445,17 @@ def delete_lecon(lecon_id: str, db: Session = Depends(get_db)):
     db.delete(lecon)
     db.commit()
     return {"message": "Leçon supprimée avec succès"}
+    @app.on_event("startup")
+def startup_db_populate():
+    db = SessionLocal()
+    if db.query(Lecon).count() == 0:
+        demo_lecon = Lecon(
+            titre="La subordination avec 'parce que'",
+            discipline="Grammaire",
+            niveau="7ème Année",
+            competence="Exprimer la cause",
+            situation_probleme="L'élève doit expliquer pourquoi il est en retard en utilisant une phrase complexe."
+        )
+        db.add(demo_lecon)
+        db.commit()
+    db.close()
