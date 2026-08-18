@@ -3,94 +3,76 @@ import React, { useEffect, useState } from 'react';
 // URL dynamique de l'API (Render en production, local en dev)
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-interface Activite {
-  titre: string;
-  consigne: string;
-}
-
-interface SéquenceSequence {
-  id?: number;
-  theme: string;
-  titre_texte: string;
-  texte_support?: string;
-  niveau: string;
-  discipline: string;
-  activite_comprehension?: Activite;
-  activite_structure?: Activite;
-  activite_typologie?: Activite;
-}
-
 export default function App() {
-  const [sequences, setSequences] = useState<any[]>([]);
+  const [lecons, setLecons] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [erreur, setErreur] = useState<string | null>(null);
 
-  // Formulaire axé sur le Thème et le Texte Support
+  // Formulaire avec valeur par défaut 10ème Année et Thème
   const [form, setForm] = useState({
     theme: 'La mendicité',
     titre_texte: '',
     texte_support: '',
-    discipline: 'Littérature / Lecture',
+    discipline: 'Français',
     niveau: '10ème Année',
   });
 
-  const [loading, setLoading] = useState<boolean>(false);
+  // Fonction sécurisée pour convertir n'importe quel type de donnée en texte (évite les erreurs React)
+  const renderTexte = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string' || typeof val === 'number') return String(val);
+    if (typeof val === 'object') return JSON.stringify(val, null, 2);
+    return String(val);
+  };
 
-  // Charger les séquences existantes
-  const chargerSequences = async () => {
+  // Charger la liste complète des leçons
+  const chargerLecons = async () => {
+    setErreur(null);
     try {
       const res = await fetch(`${API_URL}/api/lecons`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          setSequences(data);
+          setLecons(data);
         } else {
-          setSequences([]);
+          setLecons([]);
         }
+      } else {
+        setErreur(`Erreur serveur (${res.status}) lors du chargement.`);
       }
     } catch (err) {
-      console.error('Erreur lors du chargement des séquences :', err);
+      console.error('Erreur de connexion à l\'API :', err);
+      setErreur('Impossible de se connecter au serveur backend.');
     }
   };
 
   useEffect(() => {
-    chargerSequences();
+    chargerLecons();
   }, []);
 
-  // Enregistrement d'un thème et de sa séquence pédagogique
-  const handleCreerSequence = async (e: React.FormEvent) => {
+  // Création d'une nouvelle leçon / thème
+  const handleCreerLecon = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErreur(null);
 
-    // Structure APC complète générée à partir du Thème et du Texte
-    const sequencePayload = {
-      titre: `Thème : ${form.theme} - Texte : ${form.titre_texte}`,
+    const titreFinal = form.titre_texte 
+      ? `Thème : ${form.theme} - Texte : ${form.titre_texte}` 
+      : `Thème : ${form.theme}`;
+
+    const leconPayload = {
+      titre: titreFinal,
       discipline: form.discipline,
       niveau: form.niveau,
-      competence: `Développer la compréhension critique, l'analyse structurale et la maîtrise des types de textes autour du thème : ${form.theme}`,
-      situation_probleme: `Exploitation du texte support "${form.titre_texte}" relatif au thème de ${form.theme}.`,
-      details_apc: {
-        theme: form.theme,
-        titre_texte: form.titre_texte,
-        texte_support: form.texte_support,
-        activite_1: {
-          nom: "Activité 1 : Compréhension du texte",
-          consigne: "Répondre aux questions de compréhension globale et détaillée pour dégager l'idée générale et les enjeux du texte."
-        },
-        activite_2: {
-          nom: "Activité 2 : Structure du texte",
-          consigne: "Analyser l'organisation interne du texte, dégager le plan (situation initiale, déroulement, chute) et repérer les connecteurs logiques."
-        },
-        activite_3: {
-          nom: "Activité 3 : Typologie et faits de langue",
-          consigne: "Identifier le type de texte (ex: argumentatif, narratif) et analyser les outils linguistiques caractéristiques employés par l'auteur."
-        }
-      }
+      competence: `Séquence APC - Thème : ${form.theme}`,
+      situation_probleme: form.texte_support || `Exploitation du texte support sur le thème de ${form.theme}`,
     };
 
     try {
       const res = await fetch(`${API_URL}/api/lecons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sequencePayload),
+        body: JSON.stringify(leconPayload),
       });
 
       if (res.ok) {
@@ -98,22 +80,19 @@ export default function App() {
           theme: 'La mendicité',
           titre_texte: '',
           texte_support: '',
-          discipline: 'Littérature / Lecture',
+          discipline: 'Français',
           niveau: '10ème Année',
         });
-        await chargerSequences();
+        await chargerLecons();
+      } else {
+        setErreur("Erreur lors de la création de la leçon.");
       }
     } catch (err) {
-      console.error('Erreur lors de la création de la séquence :', err);
+      console.error('Erreur lors de la création :', err);
+      setErreur("Erreur de connexion lors de l'enregistrement.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderTexte = (val: any): string => {
-    if (val === null || val === undefined) return '';
-    if (typeof val === 'object') return JSON.stringify(val);
-    return String(val);
   };
 
   return (
@@ -122,51 +101,60 @@ export default function App() {
       <header className="max-w-7xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Plateforme APC <span className="text-indigo-600">Séquences par Thèmes</span>
+            Plateforme Pédagogique <span className="text-indigo-600">APC Mali (Secondaire)</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Enseignement Secondaire (Phase Pilote : <strong className="text-indigo-600">10ème Année</strong>) — Conduite d'activités par compétence.
+            Gestion des Fiches et Séquences Pédagogiques — Phase Pilote : <strong className="text-indigo-600">10ème Année</strong>
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-xs font-semibold text-indigo-900">Modules APC Actifs</span>
-        </div>
+        <button
+          onClick={chargerLecons}
+          className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs transition-all flex items-center gap-2"
+        >
+          🔄 Actualiser la liste
+        </button>
       </header>
+
+      {/* MESSAGE D'ERREUR EVENTUEL */}
+      {erreur && (
+        <div className="max-w-7xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
+          ⚠️ {erreur}
+        </div>
+      )}
 
       {/* CONTENU PRINCIPAL */}
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLONNE GAUCHE & CENTRE : FORMULAIRE ET SÉQUENCES (2/3) */}
+        {/* COLONNE GAUCHE (2/3) : FORMULAIRE + SÉQUENCES */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* FORMULAIRE CRÉATION DE THÈME ET TEXTE SUPPORT */}
+          {/* Formulaire de création */}
           <section className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/80">
             <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
               <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📖</span>
               Créer un Thème & Séquence d'Apprentissage
             </h2>
 
-            <form onSubmit={handleCreerSequence} className="space-y-4">
+            <form onSubmit={handleCreerLecon} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Thème d'étude</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: La mendicité, L'environnement, La citoyenneté..."
+                    placeholder="Ex: La mendicité, L'environnement..."
                     value={form.theme}
                     onChange={(e) => setForm({ ...form, theme: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau</label>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau (Secondaire)</label>
                   <select
                     value={form.niveau}
                     onChange={(e) => setForm({ ...form, niveau: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white font-semibold text-indigo-700"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white font-bold text-indigo-700"
                   >
                     <option value="10ème Année">10ème Année (Pilote)</option>
                     <option value="11ème Année">11ème Année</option>
@@ -179,8 +167,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Titre du Texte Support</label>
                 <input
                   type="text"
-                  required
-                  placeholder="Ex: 'Les mains tendues' ou extrait d'œuvre"
+                  placeholder="Ex: 'Les mains tendues'"
                   value={form.titre_texte}
                   onChange={(e) => setForm({ ...form, titre_texte: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
@@ -188,10 +175,10 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Contenu / Extrait du Texte Support (Optionnel)</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Texte Support / Extrait</label>
                 <textarea
-                  rows={4}
-                  placeholder="Collez ici le texte support sur lequel porteront les activités 1, 2 et 3..."
+                  rows={3}
+                  placeholder="Collez ici le texte support qui servira de base aux 3 activités..."
                   value={form.texte_support}
                   onChange={(e) => setForm({ ...form, texte_support: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
@@ -203,70 +190,78 @@ export default function App() {
                 disabled={loading}
                 className="w-full py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {loading ? 'Génération du module...' : 'Générer la Séquence APC (3 Activités)'}
+                {loading ? 'Enregistrement...' : 'Enregistrer la Leçon / Thème'}
               </button>
             </form>
           </section>
 
-          {/* LISTE DES SÉQUENCES PÉDAGOGIQUES */}
+          {/* LISTE ET CONTENU COMPLET DES LEÇONS */}
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">🗂️</span>
-              Séquences & Thèmes Enregistrés ({sequences.length})
+              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
+              Vos Leçons ({lecons.length})
             </h2>
 
-            {sequences.length === 0 ? (
+            {lecons.length === 0 ? (
               <div className="bg-white p-8 rounded-2xl border border-slate-200/80 text-center text-slate-400">
-                Aucun thème ou séquence enregistré pour le moment.
+                Aucune leçon disponible actuellement. Saisissez-en une ci-dessus !
               </div>
             ) : (
               <div className="space-y-6">
-                {sequences.map((item, index) => (
-                  <div key={item.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-200 transition-all space-y-4">
+                {lecons.map((lecon, index) => (
+                  <div key={lecon.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
                     
-                    {/* Header de la séquence */}
+                    {/* En-tête de la Leçon */}
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
                       <div>
-                        <span className="text-[10px] uppercase font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                          Thème & Séquence
+                        <span className="text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+                          {renderTexte(lecon.discipline) || 'Discipline non spécifiée'}
                         </span>
-                        <h3 className="font-bold text-slate-900 text-base mt-1">{renderTexte(item.titre)}</h3>
+                        <h3 className="font-bold text-slate-900 text-lg mt-1">
+                          {renderTexte(lecon.titre) || 'Sans titre'}
+                        </h3>
                       </div>
-                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
-                        {renderTexte(item.niveau)}
+                      <span className="px-3 py-1 bg-indigo-50 text-indigo-800 font-bold text-xs rounded-lg border border-indigo-100">
+                        {renderTexte(lecon.niveau) || '10ème Année'}
                       </span>
                     </div>
 
-                    {/* Découpage APC en 3 Activités */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {/* Activité 1 */}
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase block mb-1">
-                          Activité 1 : Compréhension
-                        </span>
-                        <p className="text-xs text-slate-600">
-                          Questions guidées sur le texte pour amener les élèves à saisir le sens global et expliciter le thème.
+                    {/* Affichage complet de la Compétence */}
+                    {lecon.competence && (
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-800 font-bold block mb-1">🎯 Compétence visée :</strong>
+                        <p className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          {renderTexte(lecon.competence)}
                         </p>
                       </div>
+                    )}
 
-                      {/* Activité 2 */}
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase block mb-1">
-                          Activité 2 : Structure
-                        </span>
-                        <p className="text-xs text-slate-600">
-                          Consignes portant sur l'organisation globale du texte, la progression et les connecteurs.
-                        </p>
+                    {/* Affichage du Texte Support ou Situation Problème */}
+                    {lecon.situation_probleme && (
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-800 font-bold block mb-1">📄 Texte Support / Situation Problème :</strong>
+                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed text-slate-700">
+                          {renderTexte(lecon.situation_probleme)}
+                        </div>
                       </div>
+                    )}
 
-                      {/* Activité 3 */}
-                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase block mb-1">
-                          Activité 3 : Typologie
-                        </span>
-                        <p className="text-xs text-slate-600">
-                          Étude du genre/type de texte et repérage des caractéristiques grammaticales et linguistiques.
-                        </p>
+                    {/* Découpage des 3 Activités APC */}
+                    <div className="pt-2">
+                      <strong className="text-xs font-bold text-slate-800 block mb-2">📌 Découpage APC (Séquence) :</strong>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
+                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 1 : Compréhension</strong>
+                          <p className="text-[11px] text-indigo-950">Questions guidées pour analyser le thème et comprendre le texte.</p>
+                        </div>
+                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
+                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 2 : Structure</strong>
+                          <p className="text-[11px] text-indigo-950">Analyse du plan, de la progression et des connecteurs logiques.</p>
+                        </div>
+                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
+                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 3 : Typologie</strong>
+                          <p className="text-[11px] text-indigo-950">Étude du type de texte (argumentatif, etc.) et des faits de langue.</p>
+                        </div>
                       </div>
                     </div>
 
@@ -278,37 +273,22 @@ export default function App() {
 
         </div>
 
-        {/* COLONNE DROITE : CADRE MÉTHODOLOGIQUE */}
+        {/* COLONNE DROITE (1/3) : PANNEAU D'INFORMATION */}
         <div className="space-y-6">
-          
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs">📊</span>
-              Architecture APC
-            </h3>
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <strong className="text-slate-800 block mb-0.5">1. Le Thème</strong>
-                Ancrage social et culturel (ex: La mendicité).
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <strong className="text-slate-800 block mb-0.5">2. Le Texte Support</strong>
-                Support concret d'observation et de travail.
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <strong className="text-slate-800 block mb-0.5">3. Les 3 Activités</strong>
-                Compréhension → Structure → Typologie.
-              </div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Statistiques</h3>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <span className="text-xs font-bold text-slate-500 block">Total Leçons</span>
+              <span className="text-3xl font-black text-indigo-600">{lecons.length}</span>
             </div>
           </div>
 
           <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
-            <h4 className="font-bold text-white text-sm mb-2">Pédagogie de la 10ème Année</h4>
-            <p className="text-xs text-slate-300 leading-relaxed mb-3">
-              L'objectif final est de développer l'autonomie de l'apprenant face à n'importe quel texte en lui donnant des clés d'analyse réutilisables.
+            <h4 className="font-bold text-sm mb-2">10ème Année - APC</h4>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Toutes les données sauvegardées sont conservées et structurées par séquences d'apprentissage.
             </p>
           </div>
-
         </div>
 
       </main>
