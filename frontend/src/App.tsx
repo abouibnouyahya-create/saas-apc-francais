@@ -3,29 +3,54 @@ import React, { useEffect, useState } from 'react';
 // URL dynamique de l'API (Render en production, local en dev)
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
+interface Lecon {
+  id?: number;
+  titre: string;
+  discipline: string;
+  niveau: string;
+  competence?: string;
+  situation_probleme?: any;
+}
+
 export default function App() {
-  const [lecons, setLecons] = useState<any[]>([]);
+  const [lecons, setLecons] = useState<Lecon[]>([]);
+  const [form, setForm] = useState({
+    titre: '',
+    discipline: 'Grammaire',
+    niveau: '10e Année',
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  // Formulaire avec valeur par défaut 10ème Année et Thème
-  const [form, setForm] = useState({
-    theme: 'La mendicité',
-    titre_texte: '',
-    texte_support: '',
-    discipline: 'Français',
-    niveau: '10ème Année',
-  });
+  // Fonction pour traiter intelligemment le champ "Situation Problème"
+  const parseSituation = (val: any) => {
+    if (!val) return null;
 
-  // Fonction sécurisée pour convertir n'importe quel type de donnée en texte (évite les erreurs React)
-  const renderTexte = (val: any): string => {
-    if (val === null || val === undefined) return '';
-    if (typeof val === 'string' || typeof val === 'number') return String(val);
-    if (typeof val === 'object') return JSON.stringify(val, null, 2);
-    return String(val);
+    let data = val;
+
+    // Si c'est une chaîne, essayer de la parser en JSON
+    if (typeof val === 'string') {
+      try {
+        data = JSON.parse(val);
+      } catch (e) {
+        // Ce n'est pas un JSON valide, on renvoie la chaîne brute
+        return { texte: val, consigne: null };
+      }
+    }
+
+    // Si le résultat est un objet
+    if (typeof data === 'object' && data !== null) {
+      return {
+        texte: data.texte || data.texte_support || data.situation || null,
+        consigne: data.consigne || data.consignes || null,
+        raw: !data.texte && !data.consigne ? JSON.stringify(data) : null,
+      };
+    }
+
+    return { texte: String(val), consigne: null };
   };
 
-  // Charger la liste complète des leçons
+  // Charger les leçons
   const chargerLecons = async () => {
     setErreur(null);
     try {
@@ -38,11 +63,11 @@ export default function App() {
           setLecons([]);
         }
       } else {
-        setErreur(`Erreur serveur (${res.status}) lors du chargement.`);
+        setErreur(`Erreur lors du chargement (${res.status})`);
       }
     } catch (err) {
-      console.error('Erreur de connexion à l\'API :', err);
-      setErreur('Impossible de se connecter au serveur backend.');
+      console.error('Erreur :', err);
+      setErreur('Impossible de contacter le serveur backend.');
     }
   };
 
@@ -50,22 +75,21 @@ export default function App() {
     chargerLecons();
   }, []);
 
-  // Création d'une nouvelle leçon / thème
+  // Création d'une nouvelle leçon
   const handleCreerLecon = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErreur(null);
 
-    const titreFinal = form.titre_texte 
-      ? `Thème : ${form.theme} - Texte : ${form.titre_texte}` 
-      : `Thème : ${form.theme}`;
-
     const leconPayload = {
-      titre: titreFinal,
+      titre: form.titre,
       discipline: form.discipline,
       niveau: form.niveau,
-      competence: `Séquence APC - Thème : ${form.theme}`,
-      situation_probleme: form.texte_support || `Exploitation du texte support sur le thème de ${form.theme}`,
+      competence: `Développement des compétences en ${form.discipline} - ${form.titre}`,
+      situation_probleme: JSON.stringify({
+        texte: `Situation d'apprentissage pour la leçon : ${form.titre}`,
+        consigne: `Analyser le contenu et effectuer les exercices relatifs à : ${form.titre}`,
+      }),
     };
 
     try {
@@ -77,19 +101,17 @@ export default function App() {
 
       if (res.ok) {
         setForm({
-          theme: 'La mendicité',
-          titre_texte: '',
-          texte_support: '',
-          discipline: 'Français',
-          niveau: '10ème Année',
+          titre: '',
+          discipline: 'Grammaire',
+          niveau: '10e Année',
         });
         await chargerLecons();
       } else {
-        setErreur("Erreur lors de la création de la leçon.");
+        setErreur('Erreur lors de la sauvegarde.');
       }
     } catch (err) {
-      console.error('Erreur lors de la création :', err);
-      setErreur("Erreur de connexion lors de l'enregistrement.");
+      console.error('Erreur :', err);
+      setErreur('Erreur de connexion au serveur.');
     } finally {
       setLoading(false);
     }
@@ -101,21 +123,20 @@ export default function App() {
       <header className="max-w-7xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Plateforme Pédagogique <span className="text-indigo-600">APC Mali (Secondaire)</span>
+            Plateforme Pédagogique <span className="text-indigo-600">APC Mali</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Gestion des Fiches et Séquences Pédagogiques — Phase Pilote : <strong className="text-indigo-600">10ème Année</strong>
+            Banque de fiches et leçons du Secondaire — Phase pilote : <strong className="text-indigo-600">10e Année</strong>.
           </p>
         </div>
         <button
           onClick={chargerLecons}
           className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs transition-all flex items-center gap-2"
         >
-          🔄 Actualiser la liste
+          🔄 Actualiser les leçons
         </button>
       </header>
 
-      {/* MESSAGE D'ERREUR EVENTUEL */}
       {erreur && (
         <div className="max-w-7xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
           ⚠️ {erreur}
@@ -125,64 +146,58 @@ export default function App() {
       {/* CONTENU PRINCIPAL */}
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* COLONNE GAUCHE (2/3) : FORMULAIRE + SÉQUENCES */}
+        {/* COLONNE GAUCHE (2/3) */}
         <div className="lg:col-span-2 space-y-8">
           
           {/* Formulaire de création */}
           <section className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/80">
             <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📖</span>
-              Créer un Thème & Séquence d'Apprentissage
+              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">✍️</span>
+              Ajouter un Titre de Leçon
             </h2>
 
             <form onSubmit={handleCreerLecon} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Titre de la leçon</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Les propositions subordonnées relatives"
+                  value={form.titre}
+                  onChange={(e) => setForm({ ...form, titre: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Thème d'étude</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: La mendicité, L'environnement..."
-                    value={form.theme}
-                    onChange={(e) => setForm({ ...form, theme: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
-                  />
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Discipline</label>
+                  <select
+                    value={form.discipline}
+                    onChange={(e) => setForm({ ...form, discipline: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white"
+                  >
+                    <option value="Grammaire">Grammaire</option>
+                    <option value="Orthographe">Orthographe</option>
+                    <option value="Conjugaison">Conjugaison</option>
+                    <option value="Vocabulaire">Vocabulaire</option>
+                    <option value="Expression Écrite">Expression Écrite</option>
+                    <option value="Lecture / Littérature">Lecture / Littérature</option>
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau (Secondaire)</label>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau</label>
                   <select
                     value={form.niveau}
                     onChange={(e) => setForm({ ...form, niveau: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white font-bold text-indigo-700"
                   >
-                    <option value="10ème Année">10ème Année (Pilote)</option>
-                    <option value="11ème Année">11ème Année</option>
+                    <option value="10e Année">10e Année (Pilote)</option>
+                    <option value="11e Année">11e Année</option>
                     <option value="Terminale">Terminale</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Titre du Texte Support</label>
-                <input
-                  type="text"
-                  placeholder="Ex: 'Les mains tendues'"
-                  value={form.titre_texte}
-                  onChange={(e) => setForm({ ...form, titre_texte: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Texte Support / Extrait</label>
-                <textarea
-                  rows={3}
-                  placeholder="Collez ici le texte support qui servira de base aux 3 activités..."
-                  value={form.texte_support}
-                  onChange={(e) => setForm({ ...form, texte_support: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
-                />
               </div>
 
               <button
@@ -190,90 +205,89 @@ export default function App() {
                 disabled={loading}
                 className="w-full py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {loading ? 'Enregistrement...' : 'Enregistrer la Leçon / Thème'}
+                {loading ? 'Enregistrement...' : 'Enregistrer la Leçon'}
               </button>
             </form>
           </section>
 
-          {/* LISTE ET CONTENU COMPLET DES LEÇONS */}
+          {/* LISTE DES LEÇONS AVEC MISE EN PAGE PROPRE */}
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
-              Vos Leçons ({lecons.length})
+              Leçons Enregistrées ({lecons.length})
             </h2>
 
             {lecons.length === 0 ? (
               <div className="bg-white p-8 rounded-2xl border border-slate-200/80 text-center text-slate-400">
-                Aucune leçon disponible actuellement. Saisissez-en une ci-dessus !
+                Aucune leçon enregistrée.
               </div>
             ) : (
               <div className="space-y-6">
-                {lecons.map((lecon, index) => (
-                  <div key={lecon.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
-                    
-                    {/* En-tête de la Leçon */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <div>
-                        <span className="text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-                          {renderTexte(lecon.discipline) || 'Discipline non spécifiée'}
-                        </span>
-                        <h3 className="font-bold text-slate-900 text-lg mt-1">
-                          {renderTexte(lecon.titre) || 'Sans titre'}
-                        </h3>
+                {lecons.map((item, index) => {
+                  const situationParsed = parseSituation(item.situation_probleme);
+
+                  return (
+                    <div key={item.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 hover:border-indigo-200 transition-all">
+                      
+                      {/* En-tête Leçon */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <h3 className="font-bold text-slate-900 text-base md:text-lg">{item.titre}</h3>
+                        <div className="flex gap-2">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
+                            {item.discipline}
+                          </span>
+                          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
+                            {item.niveau}
+                          </span>
+                        </div>
                       </div>
-                      <span className="px-3 py-1 bg-indigo-50 text-indigo-800 font-bold text-xs rounded-lg border border-indigo-100">
-                        {renderTexte(lecon.niveau) || '10ème Année'}
-                      </span>
+
+                      {/* Affichage déstructuré du contenu de la situation problème */}
+                      {situationParsed && (
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                          {/* S'il y a un Texte Support */}
+                          {situationParsed.texte && (
+                            <div>
+                              <strong className="text-xs font-bold text-indigo-900 uppercase tracking-wide block mb-1">
+                                📄 Situation / Texte Support :
+                              </strong>
+                              <p className="text-sm text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-100">
+                                {situationParsed.texte}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* S'il y a une Consigne */}
+                          {situationParsed.consigne && (
+                            <div>
+                              <strong className="text-xs font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                                ✍️ Consigne de travail :
+                              </strong>
+                              <p className="text-sm font-medium text-emerald-950 bg-emerald-50/60 p-3 rounded-lg border border-emerald-100">
+                                {situationParsed.consigne}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Cas de secours si le format est non reconnu */}
+                          {situationParsed.raw && (
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {situationParsed.raw}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                     </div>
-
-                    {/* Affichage complet de la Compétence */}
-                    {lecon.competence && (
-                      <div className="text-xs text-slate-600">
-                        <strong className="text-slate-800 font-bold block mb-1">🎯 Compétence visée :</strong>
-                        <p className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          {renderTexte(lecon.competence)}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Affichage du Texte Support ou Situation Problème */}
-                    {lecon.situation_probleme && (
-                      <div className="text-xs text-slate-600">
-                        <strong className="text-slate-800 font-bold block mb-1">📄 Texte Support / Situation Problème :</strong>
-                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed text-slate-700">
-                          {renderTexte(lecon.situation_probleme)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Découpage des 3 Activités APC */}
-                    <div className="pt-2">
-                      <strong className="text-xs font-bold text-slate-800 block mb-2">📌 Découpage APC (Séquence) :</strong>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
-                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 1 : Compréhension</strong>
-                          <p className="text-[11px] text-indigo-950">Questions guidées pour analyser le thème et comprendre le texte.</p>
-                        </div>
-                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
-                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 2 : Structure</strong>
-                          <p className="text-[11px] text-indigo-950">Analyse du plan, de la progression et des connecteurs logiques.</p>
-                        </div>
-                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl">
-                          <strong className="text-indigo-900 text-[11px] block mb-1">Activité 3 : Typologie</strong>
-                          <p className="text-[11px] text-indigo-950">Étude du type de texte (argumentatif, etc.) et des faits de langue.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
 
         </div>
 
-        {/* COLONNE DROITE (1/3) : PANNEAU D'INFORMATION */}
+        {/* COLONNE DROITE (1/3) */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Statistiques</h3>
@@ -284,9 +298,9 @@ export default function App() {
           </div>
 
           <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
-            <h4 className="font-bold text-sm mb-2">10ème Année - APC</h4>
+            <h4 className="font-bold text-sm mb-2">10e Année - Secondaire</h4>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Toutes les données sauvegardées sont conservées et structurées par séquences d'apprentissage.
+              Vos situations-problèmes et consignes sont désormais clairement séparées et lisibles pour chaque leçon.
             </p>
           </div>
         </div>
