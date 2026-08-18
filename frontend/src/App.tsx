@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 
-// URL dynamique de l'API (Render en production, local en dev)
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 interface Lecon {
@@ -21,14 +20,11 @@ export default function App() {
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [erreur, setErreur] = useState<string | null>(null);
-
-  // État pour gérer quelle leçon est actuellement ouverte (cliquée)
   const [leconOuverteId, setLeconOuverteId] = useState<number | null>(null);
 
-  // Fonction pour traiter intelligemment le champ "Situation Problème"
+  // Analyser la situation problème
   const parseSituation = (val: any) => {
     if (!val) return null;
-
     let data = val;
 
     if (typeof val === 'string') {
@@ -43,6 +39,10 @@ export default function App() {
       return {
         texte: data.texte || data.texte_support || data.situation || null,
         consigne: data.consigne || data.consignes || null,
+        prerequis: data.prerequis || null,
+        analyse: data.analyse || null,
+        retrak: data.retrak || data.resume || null,
+        exercices: data.exercices || null,
         raw: !data.texte && !data.consigne ? JSON.stringify(data) : null,
       };
     }
@@ -50,7 +50,6 @@ export default function App() {
     return { texte: String(val), consigne: null };
   };
 
-  // Charger les leçons
   const chargerLecons = async () => {
     setErreur(null);
     try {
@@ -59,7 +58,6 @@ export default function App() {
         const data = await res.json();
         if (Array.isArray(data)) {
           setLecons(data);
-          // Ouvrir la première leçon par défaut si elle existe
           if (data.length > 0 && data[0].id) {
             setLeconOuverteId(data[0].id);
           }
@@ -79,13 +77,11 @@ export default function App() {
     chargerLecons();
   }, []);
 
-  // Inverser l'état ouvert/fermé lors du clic
   const toggleLecon = (id?: number) => {
     if (!id) return;
     setLeconOuverteId(leconOuverteId === id ? null : id);
   };
 
-  // Création d'une nouvelle leçon
   const handleCreerLecon = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -95,10 +91,10 @@ export default function App() {
       titre: form.titre,
       discipline: form.discipline,
       niveau: form.niveau,
-      competence: `Développement des compétences en ${form.discipline} - ${form.titre}`,
+      competence: `Communiquer de manière claire et structurée en utilisant les règles de ${form.discipline.toLowerCase()}.`,
       situation_probleme: JSON.stringify({
-        texte: `Situation d'apprentissage pour la leçon : ${form.titre}`,
-        consigne: `Analyser le contenu et effectuer les exercices relatifs à : ${form.titre}`,
+        texte: `Situation d'apprentissage guidée pour la leçon sur : "${form.titre}".`,
+        consigne: `Observer attentivement les exemples et dégager la règle principale.`,
       }),
     };
 
@@ -136,7 +132,7 @@ export default function App() {
             Plateforme Pédagogique <span className="text-indigo-600">APC Mali</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Banque de fiches et leçons du Secondaire — Phase pilote : <strong className="text-indigo-600">10e Année</strong>.
+            Banque de fiches de cours complètes — Phase pilote : <strong className="text-indigo-600">10e Année</strong>.
           </p>
         </div>
         <button
@@ -159,11 +155,11 @@ export default function App() {
         {/* COLONNE GAUCHE (2/3) */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Formulaire de création */}
+          {/* Formulaire */}
           <section className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/80">
             <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
               <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">✍️</span>
-              Ajouter un Titre de Leçon
+              Ajouter une Nouvelle Leçon
             </h2>
 
             <form onSubmit={handleCreerLecon} className="space-y-4">
@@ -220,14 +216,14 @@ export default function App() {
             </form>
           </section>
 
-          {/* LISTE DES LEÇONS CLIQUABLES */}
+          {/* LISTE DES LEÇONS COMPLÈTES */}
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
-                Leçons Enregistrées ({lecons.length})
+                Fiches Pédagogiques APC ({lecons.length})
               </span>
-              <span className="text-xs text-slate-400 font-normal">Cliquez sur une leçon pour l'ouvrir</span>
+              <span className="text-xs text-slate-400 font-normal">Cliquez pour consulter le cours complet</span>
             </h2>
 
             {lecons.length === 0 ? (
@@ -235,7 +231,7 @@ export default function App() {
                 Aucune leçon enregistrée.
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {lecons.map((item, index) => {
                   const itemKey = item.id || index;
                   const isOuvert = leconOuverteId === itemKey;
@@ -245,10 +241,10 @@ export default function App() {
                     <div 
                       key={itemKey} 
                       className={`bg-white rounded-2xl border transition-all overflow-hidden ${
-                        isOuvert ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-300 shadow-sm'
+                        isOuvert ? 'border-indigo-500 shadow-lg ring-1 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-300 shadow-sm'
                       }`}
                     >
-                      {/* EN-TÊTE CLIQUABLE */}
+                      {/* En-tête */}
                       <button
                         type="button"
                         onClick={() => toggleLecon(item.id || index)}
@@ -268,63 +264,132 @@ export default function App() {
                           </h3>
                         </div>
 
-                        {/* BOUTON D'ÉTAT (Ouvrir / Fermer) */}
                         <div className="flex items-center gap-2 text-indigo-600 font-semibold text-xs shrink-0 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
-                          <span>{isOuvert ? 'Masquer' : 'Afficher'}</span>
+                          <span>{isOuvert ? 'Réduire' : 'Voir Fiche Complète'}</span>
                           <span className={`transform transition-transform ${isOuvert ? 'rotate-180' : ''}`}>
                             ▼
                           </span>
                         </div>
                       </button>
 
-                      {/* CONTENU DÉPLIABLE DE LA LEÇON */}
+                      {/* CONTENU DÉTAILLÉ DE LA FICHE APC */}
                       {isOuvert && (
-                        <div className="p-5 pt-0 border-t border-slate-100 space-y-4 bg-slate-50/50">
+                        <div className="p-6 border-t border-slate-100 space-y-6 bg-slate-50/30">
                           
-                          {/* Compétence */}
-                          {item.competence && (
-                            <div className="pt-4">
-                              <strong className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                                🎯 Compétence :
+                          {/* En-tête Fiche */}
+                          <div className="bg-indigo-900 text-white p-4 rounded-xl flex flex-col md:flex-row justify-between gap-2 text-xs">
+                            <div>
+                              <span className="text-indigo-200 block uppercase tracking-wider font-bold text-[10px]">Fiche Pédagogique APC</span>
+                              <strong className="text-sm">{item.titre}</strong>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-indigo-200 block">Discipline : <strong>{item.discipline}</strong></span>
+                              <span className="text-indigo-200 block">Niveau : <strong>{item.niveau}</strong></span>
+                            </div>
+                          </div>
+
+                          {/* 1. COMPÉTENCE & PRÉREQUIS */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                              <strong className="text-xs font-bold text-indigo-900 uppercase tracking-wide block mb-1">
+                                🎯 Compétence visée
                               </strong>
-                              <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/60">
-                                {item.competence}
+                              <p className="text-xs text-slate-700 leading-relaxed">
+                                {item.competence || `Savoir identifier, analyser et utiliser correctement les éléments relatifs à "${item.titre}" en situation de communication.`}
                               </p>
                             </div>
-                          )}
 
-                          {/* Situation Problème / Texte & Consigne */}
-                          {situationParsed && (
-                            <div className="space-y-3">
-                              {situationParsed.texte && (
-                                <div>
-                                  <strong className="text-xs font-bold text-indigo-900 uppercase tracking-wide block mb-1">
-                                    📄 Situation / Texte Support :
-                                  </strong>
-                                  <p className="text-sm text-slate-700 leading-relaxed bg-white p-4 rounded-xl border border-slate-200/80">
-                                    {situationParsed.texte}
-                                  </p>
-                                </div>
-                              )}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                              <strong className="text-xs font-bold text-amber-800 uppercase tracking-wide block mb-1">
+                                🧠 Prérequis (Rappel)
+                              </strong>
+                              <p className="text-xs text-slate-700 leading-relaxed">
+                                {situationParsed?.prerequis || `Rappel des notions de base acquises dans les classes précédentes relatives à la structure de la phrase et aux fonctions grammaticales.`}
+                              </p>
+                            </div>
+                          </div>
 
-                              {situationParsed.consigne && (
-                                <div>
-                                  <strong className="text-xs font-bold text-emerald-900 uppercase tracking-wide block mb-1">
-                                    ✍️ Consigne :
-                                  </strong>
-                                  <p className="text-sm font-medium text-emerald-950 bg-emerald-50/80 p-4 rounded-xl border border-emerald-100">
-                                    {situationParsed.consigne}
-                                  </p>
-                                </div>
-                              )}
-
-                              {situationParsed.raw && (
-                                <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/60">
-                                  {situationParsed.raw}
+                          {/* 2. SITUATION-PROBLÈME & CONSIGNES */}
+                          <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
+                              <span>📌</span> Phase 1 : Situation-Problème et Consigne
+                            </h4>
+                            
+                            {situationParsed?.texte && (
+                              <div>
+                                <span className="text-xs font-semibold text-slate-500 block mb-1">Situation d'apprentissage :</span>
+                                <p className="text-sm text-slate-800 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
+                                  "{situationParsed.texte}"
                                 </p>
+                              </div>
+                            )}
+
+                            {situationParsed?.consigne && (
+                              <div>
+                                <span className="text-xs font-semibold text-emerald-700 block mb-1">Consigne à exécuter :</span>
+                                <p className="text-sm font-medium text-emerald-950 bg-emerald-50/70 p-3 rounded-lg border border-emerald-100">
+                                  {situationParsed.consigne}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 3. ANALYSE ET OBSERVATION */}
+                          <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
+                              <span>🔍</span> Phase 2 : Observation & Analyse
+                            </h4>
+                            <div className="text-xs text-slate-700 space-y-2 leading-relaxed">
+                              {situationParsed?.analyse ? (
+                                <p>{situationParsed.analyse}</p>
+                              ) : (
+                                <ul className="list-disc list-inside space-y-1 bg-slate-50 p-3 rounded-lg">
+                                  <li>Analyse guidée du texte support par les élèves (travail individuel puis en groupes).</li>
+                                  <li>Mise en évidence des mots-clés, connecteurs et structures spécifiques.</li>
+                                  <li>Identification des caractéristiques principales du concept étudié : <strong>{item.titre}</strong>.</li>
+                                </ul>
                               )}
                             </div>
-                          )}
+                          </div>
+
+                          {/* 4. SYNTHÈSE / RÈGLE GÉNÉRALE */}
+                          <div className="bg-indigo-50/60 p-5 rounded-xl border border-indigo-100 space-y-2">
+                            <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider border-b border-indigo-200/60 pb-2 flex items-center gap-2">
+                              <span>📘</span> Phase 3 : Synthèse / Ce qu'il faut retenir
+                            </h4>
+                            <div className="text-sm text-indigo-950 leading-relaxed font-normal bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                              {situationParsed?.retrak ? (
+                                <p>{situationParsed.retrak}</p>
+                              ) : (
+                                <div>
+                                  <strong className="block mb-2 font-bold text-indigo-900">Résumé de la leçon :</strong>
+                                  <p className="text-xs leading-relaxed text-slate-800">
+                                    Dans l'approche APC, <strong>{item.titre}</strong> permet de structurer la pensée et d'exprimer des relations logiques précises dans une phrase. 
+                                    L'élève doit maîtriser son repérage, son emploi correct dans la production écrite et l'analyse de sa fonction dans le discours.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 5. EXERCICES D'APPLICATION */}
+                          <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b pb-2 flex items-center gap-2">
+                              <span>✍️</span> Phase 4 : Evaluation & Exercices d'application
+                            </h4>
+                            <div className="text-xs text-slate-700 space-y-2">
+                              {situationParsed?.exercices ? (
+                                <p>{situationParsed.exercices}</p>
+                              ) : (
+                                <div className="space-y-2 bg-slate-50 p-3 rounded-lg">
+                                  <p className="font-semibold text-slate-800">Exercice 1 (Application directe) :</p>
+                                  <p className="italic text-slate-600">Relevez et analysez les éléments étudiés dans les phrases proposées au tableau.</p>
+                                  <p className="font-semibold text-slate-800 pt-2">Exercice 2 (Production) :</p>
+                                  <p className="italic text-slate-600">Rédigez un court paragraphe de 3 phrases en intégrant correctement la notion du jour ({item.titre}).</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
                         </div>
                       )}
@@ -348,11 +413,19 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
-            <h4 className="font-bold text-sm mb-2">Navigation fluide</h4>
+          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md space-y-3">
+            <h4 className="font-bold text-sm flex items-center gap-2">
+              <span>🎓</span> Fiches APC Structurées
+            </h4>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Cliquez sur n'importe quel titre de leçon pour afficher ou masquer immédiatement sa situation-problème et sa consigne.
+              Chaque fiche contient désormais les 4 étapes pédagogiques officielles :
             </p>
+            <ul className="text-xs text-indigo-200 space-y-1 list-disc list-inside">
+              <li>Prérequis & Compétences</li>
+              <li>Situation-Problème</li>
+              <li>Analyse & Synthèse / Règle</li>
+              <li>Exercices d'application</li>
+            </ul>
           </div>
         </div>
 
