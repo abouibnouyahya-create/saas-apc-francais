@@ -17,13 +17,13 @@ export default function App() {
   const [form, setForm] = useState<Lecon>({
     titre: '',
     discipline: 'Français',
-    niveau: '7ème Année',
+    niveau: '10ème Année', // Début configuré sur la 10ème Année
     competence: '',
     situation_probleme: '',
   });
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Fonction utilitaire pour éviter le plantage React #31 si une donnée est un objet
+  // Sécurisation de l'affichage du texte pour éviter l'erreur React #31
   const renderTexte = (val: any): string => {
     if (val === null || val === undefined) return '';
     if (typeof val === 'object') return JSON.stringify(val);
@@ -65,7 +65,7 @@ export default function App() {
         setForm({
           titre: '',
           discipline: 'Français',
-          niveau: '7ème Année',
+          niveau: '10ème Année',
           competence: '',
           situation_probleme: '',
         });
@@ -84,10 +84,10 @@ export default function App() {
       <header className="max-w-7xl mx-auto mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Plateforme Pédagogique <span className="text-indigo-600">APC Mali</span>
+            Plateforme Pédagogique <span className="text-indigo-600">APC Mali (Secondaire)</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Gestion et préparation des fiches de cours selon l'Approche Par Compétences.
+            Gestion et préparation des fiches de cours du Secondaire — Phase pilote : <strong className="text-indigo-600">10ème Année</strong>.
           </p>
         </div>
         <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
@@ -106,7 +106,7 @@ export default function App() {
           <section className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/80">
             <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
               <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">✍️</span>
-              Créer une Fiche de Leçon
+              Créer une Fiche de Leçon (Secondaire)
             </h2>
 
             <form onSubmit={handleCreerLecon} className="space-y-4">
@@ -115,7 +115,7 @@ export default function App() {
                 <input
                   type="text"
                   required
-                  placeholder="Ex: La subordination avec 'parce que'"
+                  placeholder="Ex: La dissertation littéraire : analyse du sujet"
                   value={form.titre}
                   onChange={(e) => setForm({ ...form, titre: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
@@ -131,24 +131,24 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
                   >
                     <option value="Français">Français</option>
-                    <option value="Grammaire">Grammaire</option>
-                    <option value="Vocabulaire">Vocabulaire</option>
-                    <option value="Conjugaison">Conjugaison</option>
-                    <option value="Orthographe">Orthographe</option>
-                    <option value="Lecture / Expression">Lecture / Expression</option>
+                    <option value="Littérature / Textes">Littérature / Textes</option>
+                    <option value="Grammaire / Stylistique">Grammaire / Stylistique</option>
+                    <option value="Technique d'Expression">Technique d'Expression</option>
+                    <option value="Dissertation">Dissertation</option>
+                    <option value="Résumé de texte">Résumé de texte</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau</label>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Niveau (Secondaire)</label>
                   <select
                     value={form.niveau}
                     onChange={(e) => setForm({ ...form, niveau: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white font-medium text-indigo-700"
                   >
-                    <option value="7ème Année">7ème Année</option>
-                    <option value="8ème Année">8ème Année</option>
-                    <option value="9ème Année">9ème Année</option>
+                    <option value="10ème Année">10ème Année (Pilote)</option>
+                    <option value="11ème Année">11ème Année</option>
+                    <option value="Terminale">Terminale</option>
                   </select>
                 </div>
               </div>
@@ -158,7 +158,7 @@ export default function App() {
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Utiliser correctement les expressions de cause"
+                  placeholder="Ex: Analyser les consignes d'un sujet de réflexion littéraire"
                   value={form.competence}
                   onChange={(e) => setForm({ ...form, competence: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
@@ -170,7 +170,7 @@ export default function App() {
                 <textarea
                   rows={3}
                   required
-                  placeholder="Décrivez le contexte de départ et le problème concret à résoudre par l'élève..."
+                  placeholder="Présentez la situation concrète ou le texte d'appui posant un problème d'analyse aux élèves de 10ème..."
                   value={form.situation_probleme}
                   onChange={(e) => setForm({ ...form, situation_probleme: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
@@ -206,7 +206,7 @@ export default function App() {
                       <h3 className="font-bold text-slate-900 text-base">{renderTexte(l.titre)}</h3>
                       <div className="flex gap-2">
                         <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">{renderTexte(l.discipline)}</span>
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-semibold">{renderTexte(l.niveau)}</span>
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">{renderTexte(l.niveau)}</span>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mb-2">
@@ -239,28 +239,27 @@ export default function App() {
                 <p className="text-2xl font-black text-indigo-600 mt-1">{lecons.length}</p>
               </div>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Connexion API</p>
-                <span className="inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  OK
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cycle</p>
+                <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                  Secondaire
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Carte 2 : Guide APC Mali */}
+          {/* Carte 2 : Cadre APC Secondaire */}
           <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
             <div className="flex items-center gap-2 mb-3">
               <span className="px-2 py-0.5 text-[10px] font-extrabold bg-indigo-500/30 text-indigo-300 rounded border border-indigo-400/20 uppercase tracking-wider">
-                Rappel APC Mali
+                Focus 10ème Année
               </span>
             </div>
-            <h4 className="font-bold text-white text-sm mb-2">Approche Par Compétences</h4>
+            <h4 className="font-bold text-white text-sm mb-2">APC au Secondaire Mali</h4>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Chaque fiche pédagogique doit obligatoirement partir d'une <strong>Situation Problème</strong> concrète, ancrée dans le quotidien des élèves.
+              En 10ème année, l'accent est mis sur la transition fondamental/secondaire à travers la consolidation des compétences rédactionnelles et d'analyse critique.
             </p>
             <div className="text-[11px] text-indigo-200 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
-              💡 <em>Assurez-vous que l'évaluation finale vérifie bien la compétence visée.</em>
+              🎓 <em>Niveaux supportés : 10ème, 11ème et Terminale.</em>
             </div>
           </div>
 
