@@ -22,23 +22,23 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
+  // État pour gérer quelle leçon est actuellement ouverte (cliquée)
+  const [leconOuverteId, setLeconOuverteId] = useState<number | null>(null);
+
   // Fonction pour traiter intelligemment le champ "Situation Problème"
   const parseSituation = (val: any) => {
     if (!val) return null;
 
     let data = val;
 
-    // Si c'est une chaîne, essayer de la parser en JSON
     if (typeof val === 'string') {
       try {
         data = JSON.parse(val);
       } catch (e) {
-        // Ce n'est pas un JSON valide, on renvoie la chaîne brute
         return { texte: val, consigne: null };
       }
     }
 
-    // Si le résultat est un objet
     if (typeof data === 'object' && data !== null) {
       return {
         texte: data.texte || data.texte_support || data.situation || null,
@@ -59,6 +59,10 @@ export default function App() {
         const data = await res.json();
         if (Array.isArray(data)) {
           setLecons(data);
+          // Ouvrir la première leçon par défaut si elle existe
+          if (data.length > 0 && data[0].id) {
+            setLeconOuverteId(data[0].id);
+          }
         } else {
           setLecons([]);
         }
@@ -74,6 +78,12 @@ export default function App() {
   useEffect(() => {
     chargerLecons();
   }, []);
+
+  // Inverser l'état ouvert/fermé lors du clic
+  const toggleLecon = (id?: number) => {
+    if (!id) return;
+    setLeconOuverteId(leconOuverteId === id ? null : id);
+  };
 
   // Création d'une nouvelle leçon
   const handleCreerLecon = async (e: React.FormEvent) => {
@@ -210,11 +220,14 @@ export default function App() {
             </form>
           </section>
 
-          {/* LISTE DES LEÇONS AVEC MISE EN PAGE PROPRE */}
+          {/* LISTE DES LEÇONS CLIQUABLES */}
           <section className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
-              Leçons Enregistrées ({lecons.length})
+            <h2 className="text-lg font-bold text-slate-900 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm">📚</span>
+                Leçons Enregistrées ({lecons.length})
+              </span>
+              <span className="text-xs text-slate-400 font-normal">Cliquez sur une leçon pour l'ouvrir</span>
             </h2>
 
             {lecons.length === 0 ? (
@@ -222,59 +235,97 @@ export default function App() {
                 Aucune leçon enregistrée.
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {lecons.map((item, index) => {
+                  const itemKey = item.id || index;
+                  const isOuvert = leconOuverteId === itemKey;
                   const situationParsed = parseSituation(item.situation_probleme);
 
                   return (
-                    <div key={item.id || index} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4 hover:border-indigo-200 transition-all">
-                      
-                      {/* En-tête Leçon */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                        <h3 className="font-bold text-slate-900 text-base md:text-lg">{item.titre}</h3>
-                        <div className="flex gap-2">
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
-                            {item.discipline}
-                          </span>
-                          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
-                            {item.niveau}
+                    <div 
+                      key={itemKey} 
+                      className={`bg-white rounded-2xl border transition-all overflow-hidden ${
+                        isOuvert ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-300 shadow-sm'
+                      }`}
+                    >
+                      {/* EN-TÊTE CLIQUABLE */}
+                      <button
+                        type="button"
+                        onClick={() => toggleLecon(item.id || index)}
+                        className="w-full text-left p-5 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/80 transition-colors"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-semibold">
+                              {item.discipline}
+                            </span>
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[11px] font-bold border border-indigo-100">
+                              {item.niveau}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-slate-900 text-base md:text-lg">
+                            {item.titre}
+                          </h3>
+                        </div>
+
+                        {/* BOUTON D'ÉTAT (Ouvrir / Fermer) */}
+                        <div className="flex items-center gap-2 text-indigo-600 font-semibold text-xs shrink-0 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+                          <span>{isOuvert ? 'Masquer' : 'Afficher'}</span>
+                          <span className={`transform transition-transform ${isOuvert ? 'rotate-180' : ''}`}>
+                            ▼
                           </span>
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Affichage déstructuré du contenu de la situation problème */}
-                      {situationParsed && (
-                        <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
-                          {/* S'il y a un Texte Support */}
-                          {situationParsed.texte && (
-                            <div>
-                              <strong className="text-xs font-bold text-indigo-900 uppercase tracking-wide block mb-1">
-                                📄 Situation / Texte Support :
+                      {/* CONTENU DÉPLIABLE DE LA LEÇON */}
+                      {isOuvert && (
+                        <div className="p-5 pt-0 border-t border-slate-100 space-y-4 bg-slate-50/50">
+                          
+                          {/* Compétence */}
+                          {item.competence && (
+                            <div className="pt-4">
+                              <strong className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                                🎯 Compétence :
                               </strong>
-                              <p className="text-sm text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-100">
-                                {situationParsed.texte}
+                              <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/60">
+                                {item.competence}
                               </p>
                             </div>
                           )}
 
-                          {/* S'il y a une Consigne */}
-                          {situationParsed.consigne && (
-                            <div>
-                              <strong className="text-xs font-bold text-emerald-900 uppercase tracking-wide block mb-1">
-                                ✍️ Consigne de travail :
-                              </strong>
-                              <p className="text-sm font-medium text-emerald-950 bg-emerald-50/60 p-3 rounded-lg border border-emerald-100">
-                                {situationParsed.consigne}
-                              </p>
+                          {/* Situation Problème / Texte & Consigne */}
+                          {situationParsed && (
+                            <div className="space-y-3">
+                              {situationParsed.texte && (
+                                <div>
+                                  <strong className="text-xs font-bold text-indigo-900 uppercase tracking-wide block mb-1">
+                                    📄 Situation / Texte Support :
+                                  </strong>
+                                  <p className="text-sm text-slate-700 leading-relaxed bg-white p-4 rounded-xl border border-slate-200/80">
+                                    {situationParsed.texte}
+                                  </p>
+                                </div>
+                              )}
+
+                              {situationParsed.consigne && (
+                                <div>
+                                  <strong className="text-xs font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                                    ✍️ Consigne :
+                                  </strong>
+                                  <p className="text-sm font-medium text-emerald-950 bg-emerald-50/80 p-4 rounded-xl border border-emerald-100">
+                                    {situationParsed.consigne}
+                                  </p>
+                                </div>
+                              )}
+
+                              {situationParsed.raw && (
+                                <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/60">
+                                  {situationParsed.raw}
+                                </p>
+                              )}
                             </div>
                           )}
 
-                          {/* Cas de secours si le format est non reconnu */}
-                          {situationParsed.raw && (
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                              {situationParsed.raw}
-                            </p>
-                          )}
                         </div>
                       )}
 
@@ -298,9 +349,9 @@ export default function App() {
           </div>
 
           <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-md">
-            <h4 className="font-bold text-sm mb-2">10e Année - Secondaire</h4>
+            <h4 className="font-bold text-sm mb-2">Navigation fluide</h4>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Vos situations-problèmes et consignes sont désormais clairement séparées et lisibles pour chaque leçon.
+              Cliquez sur n'importe quel titre de leçon pour afficher ou masquer immédiatement sa situation-problème et sa consigne.
             </p>
           </div>
         </div>
